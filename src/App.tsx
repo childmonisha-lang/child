@@ -83,6 +83,68 @@ export default function App() {
   const [solPrice, setSolPrice] = useState(145.22);
   const [gptPrice, setGptPrice] = useState(2.04);
 
+  // Wallet State
+  const [walletAddress, setWalletAddress] = useState<string | null>(null);
+  const [walletError, setWalletError] = useState<string | null>(null);
+  const [isConnectingWallet, setIsConnectingWallet] = useState(false);
+
+  // Connect to MetaMask
+  const connectWallet = async () => {
+    setIsConnectingWallet(true);
+    setWalletError(null);
+    try {
+      if (typeof window !== "undefined" && (window as any).ethereum) {
+        const accounts = await (window as any).ethereum.request({
+          method: "eth_requestAccounts"
+        });
+        if (accounts && accounts.length > 0) {
+          setWalletAddress(accounts[0]);
+        } else {
+          throw new Error("No accounts found. Please unlock your wallet.");
+        }
+      } else {
+        throw new Error("MetaMask is not installed. Please install MetaMask to connect.");
+      }
+    } catch (err: any) {
+      console.error("MetaMask connection failed:", err);
+      setWalletError(err.message || "Failed to connect to MetaMask");
+    } finally {
+      setIsConnectingWallet(false);
+    }
+  };
+
+  // Listen to MetaMask account and chain changes
+  useEffect(() => {
+    if (typeof window !== "undefined" && (window as any).ethereum) {
+      const handleAccountsChanged = (accounts: string[]) => {
+        if (accounts && accounts.length > 0) {
+          setWalletAddress(accounts[0]);
+        } else {
+          setWalletAddress(null);
+        }
+      };
+
+      const handleChainChanged = () => {
+        window.location.reload();
+      };
+
+      (window as any).ethereum.on("accountsChanged", handleAccountsChanged);
+      (window as any).ethereum.on("chainChanged", handleChainChanged);
+
+      // Check if already authorized
+      (window as any).ethereum.request({ method: "eth_accounts" })
+        .then(handleAccountsChanged)
+        .catch((err: any) => console.error("Error checking connected accounts:", err));
+
+      return () => {
+        if ((window as any).ethereum.removeListener) {
+          (window as any).ethereum.removeListener("accountsChanged", handleAccountsChanged);
+          (window as any).ethereum.removeListener("chainChanged", handleChainChanged);
+        }
+      };
+    }
+  }, []);
+
   // Load articles on mount
   useEffect(() => {
     setArticles(getSavedArticles());
@@ -512,6 +574,29 @@ export default function App() {
           </nav>
 
           <div className="flex items-center gap-4">
+            {walletAddress ? (
+              <div id="wallet-status" className="bg-emerald-50 text-emerald-800 border border-emerald-200 px-4 py-2 rounded-sm font-mono text-[12px] flex items-center gap-2 shadow-sm">
+                <span className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse"></span>
+                <span>{walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</span>
+              </div>
+            ) : (
+              <button 
+                id="connect-wallet"
+                onClick={connectWallet}
+                disabled={isConnectingWallet}
+                className="border border-blue-600 text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-sm font-mono text-[11px] uppercase tracking-widest transition-all flex items-center gap-2 disabled:opacity-50"
+              >
+                {isConnectingWallet ? (
+                  <>
+                    <RotateCw className="w-3.5 h-3.5 animate-spin" />
+                    Connecting...
+                  </>
+                ) : (
+                  "Connect Wallet"
+                )}
+              </button>
+            )}
+
             <button 
               onClick={() => {
                 setIsEditing(false);
@@ -529,6 +614,21 @@ export default function App() {
           </div>
         </div>
       </header>
+
+      {walletError && (
+        <div id="wallet-error-banner" className="fixed top-[110px] left-1/2 -translate-x-1/2 z-[100] max-w-md w-full px-4">
+          <div className="bg-rose-50 border border-rose-200 p-4 rounded-sm shadow-lg flex items-start gap-3">
+            <ShieldAlert className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+            <div className="flex-grow">
+              <h5 className="font-mono text-xs font-bold text-rose-900 uppercase tracking-wider">Wallet Connection Error</h5>
+              <p className="text-xs text-rose-700 mt-1">{walletError}</p>
+            </div>
+            <button onClick={() => setWalletError(null)} className="text-slate-400 hover:text-slate-600">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <main className="pt-[102px]">
