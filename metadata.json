@@ -1,0 +1,6 @@
+{
+  "name": "Future Ledger",
+  "description": "An institutional-grade finance, Web3, and AI intelligence blog featuring responsive multi-page layouts and an interactive live terminal powered by Gemini.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
